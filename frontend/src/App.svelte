@@ -374,10 +374,11 @@
     max-width: 800px;
     margin: 0 auto;
     padding: 2rem;
+    background-color: #ffffff;
   }
 
   h1 {
-    color: #2c3e50;
+    color: #333333;
     text-align: center;
     margin-bottom: 2rem;
   }
