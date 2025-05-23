@@ -1,5 +1,7 @@
 <!-- Main application component -->
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+
   let youtubeUrl: string = '';
   let voiceName: string = '';
   let voices: Record<string, string> = {};
@@ -9,9 +11,55 @@
   let currentVoiceId: string | null = null;
   let inputText: string = '';
   let selectedVoice: string | null = null;
-  let progressMessage: string = '';
-  let progressUpdates: string[] = [];
+  let currentStatus: string = '';
   let isProcessing = false;
+  let eventSource: EventSource | null = null;
+  let retryCount = 0;
+  const MAX_RETRIES = 3;
+
+  // Function to update status with proper capitalization
+  function updateStatus(message: string) {
+    // Ensure first letter is capitalized
+    currentStatus = message.charAt(0).toUpperCase() + message.slice(1);
+  }
+
+  // Function to setup SSE connection with retry logic
+  function setupProgressUpdates() {
+    if (eventSource) {
+      eventSource.close();
+    }
+    
+    if (retryCount >= MAX_RETRIES) {
+      console.error('Max retries reached for SSE connection');
+      return;
+    }
+    
+    eventSource = new EventSource('http://localhost:8000/progress-updates');
+    
+    eventSource.addEventListener('progress', (event: MessageEvent) => {
+      console.log('Progress update received:', event.data);
+      updateStatus(event.data);
+    });
+    
+    eventSource.onerror = (error) => {
+      console.error('SSE Error:', error);
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+        
+        // Retry connection after a delay
+        setTimeout(() => {
+          retryCount++;
+          setupProgressUpdates();
+        }, 1000);
+      }
+    };
+    
+    eventSource.onopen = () => {
+      console.log('SSE connection established');
+      retryCount = 0; // Reset retry count on successful connection
+    };
+  }
 
   async function handleYouTubeSubmit() {
     if (!youtubeUrl) {
@@ -21,9 +69,13 @@
     
     error = null;
     isProcessing = true;
-    progressUpdates = ["Starting voice cloning process..."];
+    retryCount = 0; // Reset retry count before starting
+    updateStatus("Starting voice cloning process...");
     
     try {
+      // Setup SSE connection before starting the process
+      setupProgressUpdates();
+      
       // Extract audio from YouTube
       const extractResponse = await fetch('http://localhost:8000/extract-audio', {
         method: 'POST',
@@ -37,14 +89,13 @@
       }
       
       const extractData = await extractResponse.json();
-      progressUpdates = [...progressUpdates, ...extractData.progress_updates];
       
       if (!extractData.file_path) {
         throw new Error('No audio file path returned from extraction');
       }
       
-      // Clone the voice using the extracted audio file
-      progressUpdates = [...progressUpdates, "Creating voice clone..."];
+      // Clone the voice
+      updateStatus("Creating voice clone with ElevenLabs...");
       const cloneResponse = await fetch('http://localhost:8000/clone-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,17 +108,20 @@
       }
       
       const cloneData = await cloneResponse.json();
-      progressUpdates = [...progressUpdates, "Voice clone created successfully!"];
+      updateStatus("Voice clone created successfully!");
       
       // Show the save dialog
       currentVoiceId = cloneData.voice_id;
-      progressMessage = 'Voice clone created successfully!';
       
     } catch (e) {
       error = e.message;
-      progressUpdates = [...progressUpdates, `Error: ${e.message}`];
+      updateStatus(`Error: ${e.message}`);
     } finally {
       isProcessing = false;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
     }
   }
 
@@ -89,7 +143,7 @@
       await loadVoices();
       voiceName = '';
       currentVoiceId = null;
-      progressMessage = '';
+      currentStatus = '';
     } catch (e) {
       error = e.message;
     }
@@ -199,10 +253,18 @@
 
   // Load voices when component mounts
   loadVoices();
+
+  // Clean up EventSource on component unmount
+  onDestroy(() => {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  });
 </script>
 
 <main class="container">
-  <h1>Voice Cloning App</h1>
+  <h1>YouTube Voice Cloning App</h1>
   
   {#if error}
     <div class="error">
@@ -210,14 +272,9 @@
     </div>
   {/if}
 
-  {#if progressMessage}
-    <div class="progress">
-      {progressMessage}
-    </div>
-  {/if}
-
   <div class="youtube-section">
     <h2>Clone Voice from YouTube</h2>
+    <h3>Select a YouTube video to clone the voice from, ideally less than 6 minutes as ElevenLabs has an 11mb file limit</h3>
     <div class="input-group">
       <input
         type="text"
@@ -235,18 +292,18 @@
       </button>
     </div>
     
-    {#if progressUpdates.length > 0}
-      <div class="progress-container">
-        {#each progressUpdates as update}
-          <div class="progress-update" class:error={update.startsWith('Error')} class:success={update.includes('success')}>
-            {update}
-          </div>
-        {/each}
+    {#if currentStatus}
+      <div class="status-container" 
+           class:error={currentStatus.startsWith('Error')} 
+           class:success={currentStatus.includes('success')}
+           class:processing={isProcessing && !currentStatus.startsWith('Error')}>
+        <div class="status-message">
+          {#if isProcessing && !currentStatus.startsWith('Error')}
+            <div class="status-spinner"></div>
+          {/if}
+          {currentStatus}
+        </div>
       </div>
-    {/if}
-    
-    {#if error}
-      <div class="error-message">{error}</div>
     {/if}
   </div>
 
@@ -329,20 +386,23 @@
     margin-bottom: 1rem;
   }
 
-  .progress {
-    background-color: #2ecc71;
-    color: white;
-    padding: 1rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-    text-align: center;
-  }
-
   .youtube-section {
     background-color: #f8f9fa;
     padding: 1.5rem;
     border-radius: 4px;
     margin-bottom: 2rem;
+  }
+
+  .youtube-section h2 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+  }
+
+  .youtube-section h3 {
+    color: #34495e;
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+    font-weight: normal;
   }
 
   .input-group {
@@ -452,44 +512,61 @@
     background-color: #c0392b;
   }
 
-  .progress-container {
+  .status-container {
     margin: 20px 0;
     padding: 15px;
     border-radius: 8px;
-    background: #f5f5f5;
-    max-height: 200px;
-    overflow-y: auto;
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
   }
-  
-  .progress-update {
-    margin: 8px 0;
-    padding: 8px;
-    border-radius: 4px;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+  .status-container.processing {
+    background: #f0f7ff;
+    border-left-color: #3498db;
   }
-  
-  .progress-update.error {
-    background: #fee;
-    color: #c00;
+
+  .status-container.error {
+    background: #fff5f5;
+    border-left-color: #e74c3c;
   }
-  
-  .progress-update.success {
-    background: #efe;
-    color: #0a0;
+
+  .status-container.success {
+    background: #f0fff4;
+    border-left-color: #2ecc71;
   }
-  
-  .spinner {
+
+  .status-message {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1rem;
+    color: #2c3e50;
+  }
+
+  .status-spinner {
     display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #3498db;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-right: 10px;
   }
-  
+
+  .status-container.error .status-message {
+    color: #c0392b;
+  }
+
+  .status-container.success .status-message {
+    color: #27ae60;
+  }
+
+  .status-container.processing .status-message {
+    color: #2980b9;
+  }
+
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }

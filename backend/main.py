@@ -7,12 +7,19 @@ import os
 from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import requests
 from dotenv import load_dotenv
+from sse_starlette.sse import EventSourceResponse
+from asyncio import Queue
+import asyncio
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Global queue for progress updates
+progress_queue = Queue()
 
 # Use absolute imports
 from youtube import extract_audio_from_youtube, cleanup_audio_file
@@ -39,7 +46,7 @@ app = FastAPI(title="Voice Cloning App")
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Svelte dev server
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],  # Add all possible Vite dev server ports
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -89,36 +96,77 @@ async def rename_voice_in_elevenlabs(voice_id: str, name: str) -> bool:
         print(f"Error renaming voice in ElevenLabs: {str(e)}")
         return False
 
+async def send_progress_updates():
+    """Send progress updates through SSE."""
+    try:
+        while True:
+            message = await progress_queue.get()
+            if message == "DONE":
+                break
+            yield {
+                "event": "progress",
+                "data": message
+            }
+    except asyncio.CancelledError:
+        # Handle client disconnection
+        pass
+
+@app.get("/progress-updates")
+async def progress_updates():
+    """SSE endpoint for progress updates."""
+    return EventSourceResponse(
+        send_progress_updates(),
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
+
+async def add_progress_update(message: str):
+    """Add a progress update to the queue."""
+    await progress_queue.put(message)
+    print(f"Progress Update: {message}")  # Add logging for debugging
+
 @app.post("/extract-audio")
 async def extract_audio(youtube_url: YouTubeURL) -> AudioExtractionResponse:
     """
     Extract audio from a YouTube video.
     """
-    progress_updates = []
+    error = None
+    audio_file = None
     
     try:
         # Extract audio from YouTube using the configured method
         if USE_STEALTH_MODE:
-            progress_updates.append("Initializing stealth browser...")
-            audio_file = extract_audio_stealth(youtube_url.url, TEMP_AUDIO_DIR, progress_callback=progress_updates.append)
+            await add_progress_update("Setting up secure browser environment...")
+            await add_progress_update("Accessing audio converter website...")
+            await add_progress_update("Preparing to extract audio...")
+            audio_file = extract_audio_stealth(youtube_url.url, TEMP_AUDIO_DIR, 
+                progress_callback=lambda msg: asyncio.create_task(add_progress_update(msg)))
         else:
-            progress_updates.append("Using standard download mode...")
-            audio_file = extract_audio_from_youtube(youtube_url.url, TEMP_AUDIO_DIR, progress_callback=progress_updates.append)
+            await add_progress_update("Using standard download mode...")
+            audio_file = extract_audio_from_youtube(youtube_url.url, TEMP_AUDIO_DIR,
+                progress_callback=lambda msg: asyncio.create_task(add_progress_update(msg)))
             
         if not audio_file:
-            raise HTTPException(status_code=400, detail="Failed to extract audio from YouTube")
+            error = "Failed to extract audio from YouTube"
+            raise HTTPException(status_code=400, detail=error)
             
-        progress_updates.append("Audio extraction completed successfully!")
+        await add_progress_update("Audio extraction completed successfully!")
+        await progress_queue.put("DONE")
+        
         return AudioExtractionResponse(
             status="success",
             message="Audio extracted successfully",
             file_path=audio_file,
-            progress_updates=progress_updates
+            progress_updates=[]  # No longer needed as we're using SSE
         )
         
     except Exception as e:
         error_msg = f"Error extracting audio: {str(e)}"
-        progress_updates.append(error_msg)
+        await add_progress_update(error_msg)
+        await progress_queue.put("DONE")
         raise HTTPException(status_code=500, detail=error_msg)
 
 @app.post("/clone-voice")
