@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from sse_starlette.sse import EventSourceResponse
 from asyncio import Queue
 import asyncio
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -52,7 +53,11 @@ TEMP_AUDIO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "temp_a
 os.makedirs(TEMP_AUDIO_DIR, exist_ok=True)
 print(f"Temporary audio directory configured at: {TEMP_AUDIO_DIR}")
 
-app = FastAPI(title="Voice Cloning App")
+app = FastAPI(
+    title="Voice Cloning App",
+    description="API for cloning voices from YouTube videos using ElevenLabs",
+    version="1.0.0"
+)
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -62,6 +67,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "name": "Voice Cloning API",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "GET /": "This information",
+            "GET /health": "Health check endpoint",
+            "GET /voices": "List all saved voices",
+            "POST /extract-audio": "Extract audio from YouTube URL",
+            "POST /clone-voice": "Clone voice from audio file",
+            "POST /save-voice": "Save a cloned voice",
+            "POST /speak": "Generate speech with saved voice",
+            "DELETE /voices/{voice_name}": "Delete a saved voice"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": time.time()}
 
 class YouTubeURL(BaseModel):
     url: str
