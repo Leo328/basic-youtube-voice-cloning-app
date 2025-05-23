@@ -7,8 +7,20 @@ import json
 import os
 from typing import Dict, Optional
 
-# Use absolute path in backend directory
-VOICE_STORE_FILE = os.path.join(os.path.dirname(__file__), "voice_store.json")
+# Use Render's persistent storage directory if available, otherwise use local directory
+RENDER_STORAGE_DIR = "/opt/render/project/src/data"
+LOCAL_STORAGE_DIR = os.path.dirname(__file__)
+
+# Determine storage directory based on environment
+if os.path.exists("/opt/render"):
+    STORAGE_DIR = RENDER_STORAGE_DIR
+    # Create the data directory if it doesn't exist
+    os.makedirs(STORAGE_DIR, exist_ok=True)
+else:
+    STORAGE_DIR = LOCAL_STORAGE_DIR
+
+# Use absolute path for voice store file
+VOICE_STORE_FILE = os.path.join(STORAGE_DIR, "voice_store.json")
 
 def load_voices() -> Dict[str, str]:
     """
