@@ -13,8 +13,15 @@
   let extractingAudio: boolean = false;
   let error: string | null = null;
   let currentVoiceId: string | null = null;
-  let inputText: string = '';
-  let selectedVoice: string | null = null;
+  let inputText: string = `Hi Alex!  Hello from sunny California!  
+
+I put this little app together to express my enthusiasm for working on your Team. I used to work with Vijay Permmaraju at Groove where he was my engineering mentor and I learned a lot from him!  I would love nothing more than to be working with him again - that guy is awesome.
+
+Looking forward to meet with you on Monday!
+
+Warmest regards,
+Leo`;
+  let selectedVoice: string = '';
   let currentStatus: string = '';
   let isProcessing = false;
   let eventSource: EventSource | null = null;
@@ -349,6 +356,7 @@
 
     <div class="custom-text">
       <h2>Generate Custom Speech</h2>
+      <h3>Generate Speech</h3>
       <div class="input-group">
         <select bind:value={selectedVoice}>
           <option value="">Select a voice</option>
@@ -358,7 +366,6 @@
         </select>
         <textarea
           bind:value={inputText}
-          placeholder="Enter text to speak..."
           rows="3"
         ></textarea>
         <button on:click={playCustomText} disabled={!selectedVoice || !inputText}>
