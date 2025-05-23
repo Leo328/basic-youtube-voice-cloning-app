@@ -8,7 +8,7 @@ pip install -r requirements.txt
 
 # Install Chrome dependencies
 echo "Updating package lists and installing Chrome dependencies..."
-apt-get update && apt-get install -y \
+DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -36,7 +36,7 @@ apt-get update && apt-get install -y \
 # Download and install Chrome
 echo "Downloading and installing Google Chrome..."
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-apt-get install -y ./google-chrome-stable_current_amd64.deb
+DEBIAN_FRONTEND=noninteractive apt-get install -y ./google-chrome-stable_current_amd64.deb
 rm google-chrome-stable_current_amd64.deb
 
 echo "Installed Chrome version:"
