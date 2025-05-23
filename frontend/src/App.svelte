@@ -366,7 +366,7 @@ Leo`;
         </select>
         <textarea
           bind:value={inputText}
-          rows="10"
+          rows="12"
         ></textarea>
         <button on:click={playCustomText} disabled={!selectedVoice || !inputText}>
           Speak Text
