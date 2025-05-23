@@ -1,54 +1,25 @@
 """
 Module for managing voice IDs and their associated names.
-Uses a JSON file for simple persistent storage.
+Uses a simple in-memory dictionary for development.
 """
 
-import json
-import os
 from typing import Dict, Optional
 
-# Use Render's persistent storage directory if available, otherwise use local directory
-RENDER_STORAGE_DIR = "/opt/render/project/src/data"
-LOCAL_STORAGE_DIR = os.path.dirname(__file__)
-
-# Determine storage directory based on environment
-if os.path.exists("/opt/render"):
-    STORAGE_DIR = RENDER_STORAGE_DIR
-    # Create the data directory if it doesn't exist
-    os.makedirs(STORAGE_DIR, exist_ok=True)
-else:
-    STORAGE_DIR = LOCAL_STORAGE_DIR
-
-# Use absolute path for voice store file
-VOICE_STORE_FILE = os.path.join(STORAGE_DIR, "voice_store.json")
+# Hardcoded voice mappings
+VOICE_STORE = {
+    "Morgan Freeman": "2EiwWnXFnvU5JabPnv8n",
+    "David Attenborough": "pNInz6obpgDQGcFmaJgB",
+    "Example Voice": "jsCqWAovK2LkecY7zXl4"
+}
 
 def load_voices() -> Dict[str, str]:
     """
-    Load voice mappings from JSON file.
+    Load voice mappings from memory.
     
     Returns:
         Dictionary mapping voice names to their IDs
     """
-    try:
-        if os.path.exists(VOICE_STORE_FILE):
-            with open(VOICE_STORE_FILE, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Error loading voice store: {str(e)}")
-    return {}
-
-def save_voices(voices: Dict[str, str]) -> None:
-    """
-    Save voice mappings to JSON file.
-    
-    Args:
-        voices: Dictionary mapping voice names to their IDs
-    """
-    try:
-        with open(VOICE_STORE_FILE, 'w') as f:
-            json.dump(voices, f, indent=2)
-    except Exception as e:
-        print(f"Error saving voice store: {str(e)}")
+    return VOICE_STORE
 
 def add_voice(name: str, voice_id: str) -> None:
     """
@@ -58,9 +29,7 @@ def add_voice(name: str, voice_id: str) -> None:
         name: Name of the voice
         voice_id: ElevenLabs voice ID
     """
-    voices = load_voices()
-    voices[name] = voice_id
-    save_voices(voices)
+    VOICE_STORE[name] = voice_id
 
 def get_voice_id(name: str) -> Optional[str]:
     """
@@ -72,8 +41,7 @@ def get_voice_id(name: str) -> Optional[str]:
     Returns:
         Voice ID if found, None otherwise
     """
-    voices = load_voices()
-    return voices.get(name)
+    return VOICE_STORE.get(name)
 
 def list_voices() -> Dict[str, str]:
     """
@@ -82,7 +50,7 @@ def list_voices() -> Dict[str, str]:
     Returns:
         Dictionary of all voice names and their IDs
     """
-    return load_voices()
+    return VOICE_STORE
 
 def remove_voice(name: str) -> bool:
     """
@@ -94,9 +62,7 @@ def remove_voice(name: str) -> bool:
     Returns:
         True if voice was removed, False if not found
     """
-    voices = load_voices()
-    if name in voices:
-        del voices[name]
-        save_voices(voices)
+    if name in VOICE_STORE:
+        del VOICE_STORE[name]
         return True
     return False 
