@@ -4,7 +4,7 @@ services:
     name: backend
     runtime: python3.9
     buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && PYTHONPATH=$PYTHONPATH:. gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker main:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker backend.main:app
     envVars:
       - key: ELEVENLABS_API_KEY
         sync: false
