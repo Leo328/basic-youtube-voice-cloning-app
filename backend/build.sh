@@ -8,7 +8,7 @@ pip install -r requirements.txt
 
 # Install Chrome dependencies
 echo "Updating package lists and installing Chrome dependencies..."
-sudo apt-get update && sudo apt-get install -y \
+apt-get update && apt-get install -y \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -36,7 +36,7 @@ sudo apt-get update && sudo apt-get install -y \
 # Download and install Chrome
 echo "Downloading and installing Google Chrome..."
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+apt-get install -y ./google-chrome-stable_current_amd64.deb
 rm google-chrome-stable_current_amd64.deb
 
 echo "Installed Chrome version:"
@@ -69,18 +69,18 @@ echo "Using ChromeDriver version: $CHROME_DRIVER_VERSION"
 wget -N https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip -P ~/ || wget -N ${LATEST_RELEASE_URL}/${CHROME_DRIVER_VERSION}/linux64/chromedriver-linux64.zip -P ~/
 if [ -f ~/chromedriver_linux64.zip ]; then
     unzip ~/chromedriver_linux64.zip -d ~/ && rm ~/chromedriver_linux64.zip
-    sudo mv -f ~/chromedriver /usr/local/bin/chromedriver
+    mv -f ~/chromedriver /usr/local/bin/chromedriver
 elif [ -f ~/chromedriver-linux64.zip ]; then # New naming scheme
     unzip ~/chromedriver-linux64.zip -d ~/ && rm ~/chromedriver-linux64.zip
-    sudo mv -f ~/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
-    sudo rm -rf ~/chromedriver-linux64 # Clean up the directory
+    mv -f ~/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+    rm -rf ~/chromedriver-linux64 # Clean up the directory
 else
     echo "Failed to download ChromeDriver. Please check the version and URL."
     exit 1
 fi
 
-sudo chown root:root /usr/local/bin/chromedriver
-sudo chmod +x /usr/local/bin/chromedriver
+chown root:root /usr/local/bin/chromedriver
+chmod +x /usr/local/bin/chromedriver
 
 echo "Installed ChromeDriver version:"
 chromedriver --version
