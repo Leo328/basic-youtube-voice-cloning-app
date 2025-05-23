@@ -17,6 +17,6 @@ export default defineConfig({
     host: '0.0.0.0'
   },
   define: {
-    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'https://backend-basic-youtube-voice-cloning-app.onrender.com')
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'https://basic-youtube-voice-cloning-app.onrender.com')
   }
 })
