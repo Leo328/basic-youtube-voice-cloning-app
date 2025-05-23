@@ -1,0 +1,30 @@
+services:
+  # Backend API service
+  - type: web
+    name: voice-clone-api
+    env: python
+    buildCommand: cd backend && chmod +x build.sh && ./build.sh && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: USE_STEALTH_MODE
+        value: true
+      - key: FRONTEND_URL
+        fromService:
+          name: voice-clone-frontend
+          type: web
+          property: url
+
+  # Frontend web service
+  - type: web
+    name: voice-clone-frontend
+    env: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm run preview
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          name: voice-clone-api
+          type: web
+          property: url 

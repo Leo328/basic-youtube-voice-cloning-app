@@ -2,6 +2,9 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
 
+  // API configuration
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  
   let youtubeUrl: string = '';
   let voiceName: string = '';
   let voices: Record<string, string> = {};
@@ -34,7 +37,7 @@
       return;
     }
     
-    eventSource = new EventSource('http://localhost:8000/progress-updates');
+    eventSource = new EventSource(`${API_BASE_URL}/progress-updates`);
     
     eventSource.addEventListener('progress', (event: MessageEvent) => {
       console.log('Progress update received:', event.data);
@@ -77,7 +80,7 @@
       setupProgressUpdates();
       
       // Extract audio from YouTube
-      const extractResponse = await fetch('http://localhost:8000/extract-audio', {
+      const extractResponse = await fetch(`${API_BASE_URL}/extract-audio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: youtubeUrl })
@@ -96,7 +99,7 @@
       
       // Clone the voice
       updateStatus("Creating voice clone with ElevenLabs...");
-      const cloneResponse = await fetch('http://localhost:8000/clone-voice', {
+      const cloneResponse = await fetch(`${API_BASE_URL}/clone-voice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audio_file: extractData.file_path })
@@ -129,7 +132,7 @@
     if (!currentVoiceId || !voiceName) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/save-voice?voice_id=${currentVoiceId}`, {
+      const response = await fetch(`${API_BASE_URL}/save-voice?voice_id=${currentVoiceId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: voiceName })
@@ -151,7 +154,7 @@
 
   async function loadVoices() {
     try {
-      const response = await fetch('http://localhost:8000/voices').catch(() => {
+      const response = await fetch(`${API_BASE_URL}/voices`).catch(() => {
         // Silently handle network errors during initial load
         return { ok: false, json: async () => ({}) } as Response;
       });
@@ -180,7 +183,7 @@
       const voiceName = Object.entries(voices).find(([name, id]) => id === voiceId)?.[0];
       if (!voiceName) throw new Error('Voice name not found');
 
-      const response = await fetch('http://localhost:8000/speak', {
+      const response = await fetch(`${API_BASE_URL}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,7 +210,7 @@
     if (!selectedVoice || !inputText) return;
     
     try {
-      const response = await fetch('http://localhost:8000/speak', {
+      const response = await fetch(`${API_BASE_URL}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -236,7 +239,7 @@
     }
     
     try {
-      const response = await fetch(`http://localhost:8000/voices/${encodeURIComponent(name)}`, {
+      const response = await fetch(`${API_BASE_URL}/voices/${encodeURIComponent(name)}`, {
         method: 'DELETE'
       });
 

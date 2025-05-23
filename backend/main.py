@@ -28,6 +28,15 @@ from voice_store import add_voice, get_voice_id, list_voices, remove_voice
 
 # Configuration
 USE_STEALTH_MODE = os.getenv("USE_STEALTH_MODE", "true").lower() == "true"  # Default to true
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")  # Default to Vite dev server
+
+# Allow multiple frontend URLs (development and production)
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Vite default
+    "http://localhost:5174",  # Vite fallback
+    "http://localhost:5175",  # Vite fallback
+    FRONTEND_URL,  # Production URL from env
+]
 
 # Load environment variables
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -46,7 +55,7 @@ app = FastAPI(title="Voice Cloning App")
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],  # Add all possible Vite dev server ports
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
