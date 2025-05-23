@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+.venv
+venv/
+ENV/
+env/
+
+# IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Local instances and data
+*.sqlite3
+*.db
+
+# Temporary files
+temp_audio/
+*.log
+
+# Git
+.git
+.gitignore
+
+# Render specific (if any, good to keep out of image)
+render.yaml
+
+# OS specific
+.DS_Store
+Thumbs.db 
