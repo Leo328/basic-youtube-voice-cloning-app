@@ -17,7 +17,7 @@
 
 I put this little app together to express my enthusiasm for working on your Team. I used to work with Vijay Permmaraju at Groove where he was my engineering mentor and I learned a lot from him!  I would love nothing more than to be working with him again - that guy is awesome.
 
-Looking forward to meet with you on Monday!
+Looking forward to meeting with you on Monday!
 
 Warmest regards,
 Leo`;
@@ -366,7 +366,7 @@ Leo`;
         </select>
         <textarea
           bind:value={inputText}
-          rows="3"
+          rows="10"
         ></textarea>
         <button on:click={playCustomText} disabled={!selectedVoice || !inputText}>
           Speak Text
