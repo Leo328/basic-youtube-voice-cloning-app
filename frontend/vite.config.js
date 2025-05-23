@@ -17,6 +17,7 @@ export default defineConfig({
     host: '0.0.0.0'
   },
   define: {
+    // Production URL for the backend API (no 'backend-' prefix)
     'import.meta.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'https://basic-youtube-voice-cloning-app.onrender.com')
   }
 })
