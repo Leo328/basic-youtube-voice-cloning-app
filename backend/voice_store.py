@@ -7,7 +7,8 @@ import json
 import os
 from typing import Dict, Optional
 
-VOICE_STORE_FILE = "voice_store.json"
+# Use absolute path in backend directory
+VOICE_STORE_FILE = os.path.join(os.path.dirname(__file__), "voice_store.json")
 
 def load_voices() -> Dict[str, str]:
     """

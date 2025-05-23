@@ -14,9 +14,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Use relative imports
-from .youtube import extract_audio_from_youtube, cleanup_audio_file
-from .voice_store import add_voice, get_voice_id, list_voices, remove_voice
+# Use absolute imports
+from youtube import extract_audio_from_youtube, cleanup_audio_file
+from youtube_stealth import extract_audio_stealth
+from voice_store import add_voice, get_voice_id, list_voices, remove_voice
+
+# Configuration
+USE_STEALTH_MODE = os.getenv("USE_STEALTH_MODE", "true").lower() == "true"  # Default to true
 
 # Load environment variables
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -24,7 +28,11 @@ if not ELEVENLABS_API_KEY:
     raise ValueError("ELEVENLABS_API_KEY environment variable is not set")
 
 ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
-TEMP_AUDIO_DIR = "temp_audio"
+
+# Ensure TEMP_AUDIO_DIR is an absolute path and exists
+TEMP_AUDIO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "temp_audio"))
+os.makedirs(TEMP_AUDIO_DIR, exist_ok=True)
+print(f"Temporary audio directory configured at: {TEMP_AUDIO_DIR}")
 
 app = FastAPI(title="Voice Cloning App")
 
@@ -54,6 +62,10 @@ class AudioExtractionResponse(BaseModel):
     status: str
     message: str
     file_path: Optional[str] = None
+    progress_updates: list[str] = []  # List of progress messages
+
+class CloneVoiceRequest(BaseModel):
+    audio_file: str
 
 async def rename_voice_in_elevenlabs(voice_id: str, name: str) -> bool:
     """
@@ -78,74 +90,99 @@ async def rename_voice_in_elevenlabs(voice_id: str, name: str) -> bool:
         return False
 
 @app.post("/extract-audio")
-async def extract_audio(youtube_url: YouTubeURL, background_tasks: BackgroundTasks) -> AudioExtractionResponse:
+async def extract_audio(youtube_url: YouTubeURL) -> AudioExtractionResponse:
     """
     Extract audio from a YouTube video.
-    The audio file will be automatically cleaned up after processing.
     """
+    progress_updates = []
+    
     try:
-        # Extract audio from YouTube
-        audio_file = extract_audio_from_youtube(youtube_url.url, TEMP_AUDIO_DIR)
+        # Extract audio from YouTube using the configured method
+        if USE_STEALTH_MODE:
+            progress_updates.append("Initializing stealth browser...")
+            audio_file = extract_audio_stealth(youtube_url.url, TEMP_AUDIO_DIR, progress_callback=progress_updates.append)
+        else:
+            progress_updates.append("Using standard download mode...")
+            audio_file = extract_audio_from_youtube(youtube_url.url, TEMP_AUDIO_DIR, progress_callback=progress_updates.append)
+            
         if not audio_file:
             raise HTTPException(status_code=400, detail="Failed to extract audio from YouTube")
             
-        # Schedule cleanup for later
-        background_tasks.add_task(cleanup_audio_file, audio_file)
-        
+        progress_updates.append("Audio extraction completed successfully!")
         return AudioExtractionResponse(
             status="success",
             message="Audio extracted successfully",
-            file_path=audio_file
+            file_path=audio_file,
+            progress_updates=progress_updates
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error extracting audio: {str(e)}")
+        error_msg = f"Error extracting audio: {str(e)}"
+        progress_updates.append(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.post("/clone-voice")
-async def clone_voice(youtube_url: YouTubeURL) -> Dict[str, str]:
+async def clone_voice(request: CloneVoiceRequest) -> Dict[str, str]:
     """
-    Extract audio from YouTube video and create voice clone using ElevenLabs.
+    Create voice clone using ElevenLabs from an already downloaded audio file.
     """
-    # Extract audio using our new endpoint
-    audio_response = await extract_audio(youtube_url, BackgroundTasks())
-    if not audio_response.file_path:
-        raise HTTPException(status_code=400, detail="Failed to download audio")
-
     try:
-        # Upload audio to ElevenLabs
-        with open(audio_response.file_path, 'rb') as f:
-            # Create form data
-            files = {
-                "files": ("audio.mp3", f, "audio/mpeg")
-            }
-            form_data = {
-                "name": "Voice Clone",
-                "description": "Voice cloned from YouTube audio",
-                "labels": '{"accent": "neutral"}'
-            }
-            
-            # Make the request
-            response = requests.post(
-                f"{ELEVENLABS_API_URL}/voices/add",
-                headers={"xi-api-key": ELEVENLABS_API_KEY},
-                files=files,
-                data=form_data
+        audio_file = request.audio_file
+        print(f"Attempting to access audio file at: {audio_file}")
+        
+        # Handle both absolute and relative paths
+        if not os.path.isabs(audio_file):
+            audio_file = os.path.join(os.path.dirname(__file__), audio_file)
+        
+        if not os.path.exists(audio_file):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Audio file not found at path: {audio_file}"
             )
-            
-            # Print response for debugging
-            print(f"ElevenLabs API Response Status: {response.status_code}")
-            print(f"ElevenLabs API Response: {response.text}")
-            
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"ElevenLabs API error: {response.text}"
+
+        print(f"Found audio file at: {audio_file}")
+        
+        try:
+            # Upload audio to ElevenLabs
+            with open(audio_file, 'rb') as f:
+                # Create form data
+                files = {
+                    "files": ("audio.mp3", f, "audio/mpeg")
+                }
+                form_data = {
+                    "name": "Voice Clone",
+                    "description": "Voice cloned from YouTube audio",
+                    "labels": '{"accent": "neutral"}'
+                }
+                
+                # Make the request
+                response = requests.post(
+                    f"{ELEVENLABS_API_URL}/voices/add",
+                    headers={"xi-api-key": ELEVENLABS_API_KEY},
+                    files=files,
+                    data=form_data
                 )
-            
-            voice_id = response.json()["voice_id"]
-            return {"voice_id": voice_id}
+                
+                # Print response for debugging
+                print(f"ElevenLabs API Response Status: {response.status_code}")
+                print(f"ElevenLabs API Response: {response.text}")
+                
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"ElevenLabs API error: {response.text}"
+                    )
+                
+                voice_id = response.json()["voice_id"]
+                return {"voice_id": voice_id}
+                
+        finally:
+            # Clean up the audio file after we're done with it
+            print(f"Cleaning up audio file: {audio_file}")
+            cleanup_audio_file(audio_file)
             
     except Exception as e:
+        print(f"Error in clone_voice: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error cloning voice: {str(e)}")
 
 @app.post("/save-voice")
@@ -204,6 +241,41 @@ async def text_to_speech(request: SpeakRequest) -> Response:
         content=response.content,
         media_type="audio/mpeg"
     )
+
+@app.delete("/voices/{voice_name}")
+async def delete_voice(voice_name: str) -> Dict[str, str]:
+    """
+    Delete a voice from ElevenLabs and local store.
+    
+    Args:
+        voice_name: Name of the voice to delete
+    """
+    try:
+        # Get voice ID from local store
+        voice_id = get_voice_id(voice_name)
+        if not voice_id:
+            raise HTTPException(status_code=404, detail=f"Voice '{voice_name}' not found")
+            
+        # Delete from ElevenLabs
+        response = requests.delete(
+            f"{ELEVENLABS_API_URL}/voices/{voice_id}",
+            headers={"xi-api-key": ELEVENLABS_API_KEY}
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"ElevenLabs API error: {response.text}"
+            )
+            
+        # Delete from local store
+        if not remove_voice(voice_name):
+            raise HTTPException(status_code=500, detail="Failed to remove voice from local store")
+            
+        return {"status": "success"}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting voice: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
