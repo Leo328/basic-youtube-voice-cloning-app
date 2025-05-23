@@ -4,7 +4,7 @@ services:
     name: backend
     runtime: python3.9
     buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker backend.main:app
+    startCommand: cd backend && gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker main:app
     envVars:
       - key: ELEVENLABS_API_KEY
         sync: false
@@ -12,15 +12,10 @@ services:
         value: 3.9.0
       - key: USE_STEALTH_MODE
         value: true
-      - key: FRONTEND_URL
-        fromService:
-          name: voice-clone-frontend
-          type: web
-          property: url
 
   # Frontend web service
   - type: web
-    name: voice-clone-frontend
+    name: frontend
     env: node
     buildCommand: cd frontend && npm install && npm run build
     startCommand: cd frontend && npm run preview
