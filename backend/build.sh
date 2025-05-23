@@ -6,10 +6,10 @@ echo "Starting build process for Render..."
 
 # 1. Update package lists and install essential packages
 echo "Updating package lists and installing essential tools (python3, pip, wget, ffmpeg, Chrome dependencies)..."
-apt-get update -y
+sudo apt-get update -y
 # Install essential tools and Chrome dependencies
 # Added common dependencies for headless Chrome to run reliably.
-apt-get install -y --no-install-recommends \
+sudo apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     wget \
@@ -58,13 +58,16 @@ wget --no-verbose -O google-chrome-stable_current_amd64.deb https://dl.google.co
 # 3. Install Google Chrome
 echo "Installing Google Chrome..."
 # The DEBIAN_FRONTEND=noninteractive helps avoid prompts during installation.
-DEBIAN_FRONTEND=noninteractive apt-get install -y ./google-chrome-stable_current_amd64.deb
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./google-chrome-stable_current_amd64.deb
 # Attempt to fix any broken dependencies that Chrome's installation might cause.
 echo "Fixing any potential broken dependencies after Chrome install..."
-apt-get install -f -y
+sudo apt-get install -f -y
 
 # 4. Upgrade pip and install Python dependencies
 echo "Installing Python dependencies from requirements.txt..."
+# Use sudo for pip3 if installing system-wide, but it's better to ensure pip3 installs to user or virtual env.
+# However, in build scripts like this for Render, pip3 might be installing to a globally accessible Python site-packages.
+# Let's try without sudo for pip first, as it's generally safer unless permissions require it.
 pip3 install --no-cache-dir --upgrade pip
 # Assumes requirements.txt is in the same directory as this script (e.g., ./backend/requirements.txt)
 if [ -f "requirements.txt" ]; then
