@@ -36,6 +36,8 @@ ALLOWED_ORIGINS = [
     "http://localhost:5174",  # Vite fallback
     "http://localhost:5175",  # Vite fallback
     FRONTEND_URL,  # Production URL from env
+    "https://frontend-basic-youtube-voice-cloning-app.onrender.com",  # Render frontend domain
+    "https://*.onrender.com"  # All Render subdomains
 ]
 
 # Load environment variables
