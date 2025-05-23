@@ -483,6 +483,11 @@ Leo`;
     margin-top: 2rem;
   }
 
+  .custom-text h2 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+  }
+
   textarea {
     width: 100%;
     padding: 0.5rem;
